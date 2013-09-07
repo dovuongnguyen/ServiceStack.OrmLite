@@ -25,11 +25,22 @@ using ServiceStack.OrmLite;
 
 namespace <#=SPNamespace#>
 {
-	public static class SPList 
+    /// <summary>
+    /// Wraps the Stored Procedure Statement with the DbCommand. We need
+    /// access to the DbCommand to retrieve output variables. This class is needed
+    /// because OrmLiteSPStatement class hides the DbCommand
+    /// </summary>
+    public class OrmLiteStoredProcedureWrapper
+    {
+        public OrmLiteSPStatement Statement { get; set; }
+        public DbCommand DbCommand { get; set; }
+    }
+
+	public static class StoredProcedures 
 	{
 		private static DbParameter CreateNewParameter(DbCommand dbCommand, string paramName, object paramValue, ParameterDirection paramDirection, DbType paramType)
 		{
-			DbParameter param = dbCommand.CreateParameter();
+			var param = dbCommand.CreateParameter();
 			param.Direction = paramDirection;
 			param.DbType = paramType;
 			param.ParameterName = paramName;
@@ -38,20 +49,24 @@ namespace <#=SPNamespace#>
 		}
 
 <#foreach(var sp in sps){#>
-		public static OrmLiteSPStatement <#=sp.CleanName#>(this IDbConnection dbConnection <#foreach(var param in sp.Parameters){#> , <#=param.NullableSysType#> <#=Inflector.MakeInitialLowerCase(param.Name)#>  = null <#}#>)
+		public static OrmLiteStoredProcedureWrapper <#=sp.Schema + "_" + sp.CleanName#>(this IDbConnection dbConnection<#foreach(var param in sp.Parameters){#>, <#=param.NullableSysType#> <#=Inflector.MakeInitialLowerCase(param.Name)#> = null<#}#>)
 		{
-			DbCommand dbCommand = (DbCommand)dbConnection.CreateCommand();
-			dbCommand.CommandText = "<#=sp.Name#>";
+			var dbCommand = (DbCommand)dbConnection.CreateCommand();
+			dbCommand.CommandText = "<#=sp.SchemaQualifiedName#>";
 			dbCommand.CommandType = CommandType.StoredProcedure;
 			dbCommand.Transaction = OrmLiteConfig.TSTransaction!= null ? (DbTransaction)OrmLiteConfig.TSTransaction : null;
 <#if (sp.Parameters.Count > 0) { foreach(var param in sp.Parameters){#>
-			dbCommand.Parameters.Add(CreateNewParameter(dbCommand,"<#=param.Name#>",<#=Inflector.MakeInitialLowerCase(param.Name)#>,ParameterDirection.Input,<#=param.DbType#>));
+			dbCommand.Parameters.Add(CreateNewParameter(dbCommand,"<#=param.Name#>", <#=Inflector.MakeInitialLowerCase(param.Name)#>, ParameterDirection.<#=param.Direction#>, <#=param.DbType#>));
 <#}#> <#}#>
-			return new OrmLiteSPStatement(dbCommand);
+
+			return new OrmLiteStoredProcedureWrapper
+                {
+                    Statement = new OrmLiteSPStatement(dbCommand),
+                    DbCommand = dbCommand
+                };
 		}
 
 <#}#>
 	}
 }
 <# } #>
-
