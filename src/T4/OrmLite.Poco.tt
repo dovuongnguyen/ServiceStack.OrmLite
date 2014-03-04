@@ -1,4 +1,4 @@
-<#@ include file="OrmLite.Core.ttinclude" #>
+﻿<#@ include file="OrmLite.Core.ttinclude" #>
 <#
 	// Settings
 	ConnectionStringName = "";			// Uses last connection string in config if not specified
@@ -57,6 +57,8 @@ foreach(Table tbl in from t in tables where !t.Ignore select t)
 manager.StartNewFile(tbl.Name + ".cs");
 #>
 <# if (MakeSingular) {#>
+	
+	[Schema("<#=tbl.Schema#>")]
 	[Alias("<#=tbl.Name#>")]
 <#}#>
     public partial class <#=tbl.ClassName#><#if (tbl.HasPK() && UseIdAsPK) { #> : IHasId<<#=tbl.PK.PropertyType#>><#}#> 
@@ -97,5 +99,4 @@ foreach(Column col in from c in tbl.Columns where !c.Ignore select c)
 <#manager.EndBlock(); #>
 <#manager.Process(SplitIntoMultipleFiles); #>
 <#  }   #>
-
 

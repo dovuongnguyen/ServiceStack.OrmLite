@@ -1,4 +1,4 @@
-<#@ template language="C#" hostspecific="True" #>
+﻿<#@ template language="C#" hostspecific="True" #>
 <#@ assembly name="EnvDTE" #>
 <#@ assembly name="System.Core.dll" #>
 <#@ assembly name="System.Data" #>
@@ -230,13 +230,6 @@ public class SP
 	}
 }
 
-public enum SPParamDir
-{
-  OutDirection,
-  InDirection,
-  InAndOutDirection
-}
-
 public class SPParam
 {
 	public string Name;
@@ -244,7 +237,7 @@ public class SPParam
     public string SysType;
 	public string NullableSysType;
     public string DbType;
-    public SPParamDir Direction;
+    public ParameterDirection Direction;
 }
 
 
@@ -665,7 +658,7 @@ List<SP> LoadSPs()
 			}
 			else
 			{
-				// Assume SQL Server
+				// Assume SQL ServerReadSPList
 				reader=new SqlServerSchemaReader();
 			}
 
@@ -921,6 +914,11 @@ class SqlServerSchemaReader : SchemaReader
 			p.Value=sp.Name;
 			cmd.Parameters.Add(p);
 
+			var p2 = cmd.CreateParameter();
+			p2.ParameterName = "@spSchema";
+			p2.Value=sp.Schema;
+			cmd.Parameters.Add(p2);
+
 			var result=new List<SPParam>();
 			using (IDataReader rdr=cmd.ExecuteReader())
 			{
@@ -935,11 +933,11 @@ class SqlServerSchemaReader : SchemaReader
 					param.Name=rdr["PARAMETER_NAME"].ToString().Replace("@","");
 					param.CleanName=CleanUp(param.Name);
 				    if (rdr["PARAMETER_MODE"].ToString().ToUpper() == "OUT")
-					   param.Direction = SPParamDir.OutDirection;
+					   param.Direction = ParameterDirection.Output;
 					else if (rdr["PARAMETER_MODE"].ToString().ToUpper() == "IN")
-					   param.Direction = SPParamDir.InDirection;
+					   param.Direction = ParameterDirection.Input;
 					else
-					   param.Direction = SPParamDir.InAndOutDirection;
+					   param.Direction = ParameterDirection.InputOutput;
 					result.Add(param);
 				}
 			}
@@ -1158,7 +1156,7 @@ class SqlServerSchemaReader : SchemaReader
 
     const string TABLE_SQL=@"SELECT *
         FROM  INFORMATION_SCHEMA.TABLES
-        WHERE TABLE_TYPE='BASE TABLE' OR TABLE_TYPE='VIEW'";
+        WHERE TABLE_TYPE='BASE TABLE' OR TABLE_TYPE='VIEW' ORDER BY [TABLE_SCHEMA], [TABLE_NAME]";
 
     const string COLUMN_SQL=@"SELECT
             TABLE_CATALOG AS [Database],
@@ -1184,11 +1182,12 @@ WHERE   o.type = 'P'
                             'sp_creatediagram', 'sp_dropdiagram',
                             'sp_helpdiagramdefinition', 'sp_helpdiagrams',
                             'sp_renamediagram', 'sp_upgraddiagrams',
-                            'sysdiagrams' )";
+                            'sysdiagrams' )
+		ORDER BY s.name, o.name ";
 
 
     const string SP_PARAMETERS_SQL=@"SELECT * from information_schema.PARAMETERS
-                                where SPECIFIC_NAME = @spname
+                                where SPECIFIC_NAME = @spname AND SPECIFIC_SCHEMA = @spSchema
                                 order by ORDINAL_POSITION";
 
 }
